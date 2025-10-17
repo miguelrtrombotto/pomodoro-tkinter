@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import datetime
 
 class PomodoroApp:
     def __init__(self, root):
@@ -19,6 +20,13 @@ class PomodoroApp:
         self.is_break = False  # False = Trabajo, True = Descanso
         self.remaining_secs = 00
         self._after_id = None
+        
+        # Contador diario y fecha actual
+        self.daily_sessions = 0
+        self.current_date = datetime.date.today()
+
+        # UI: etiqueta de sesiones
+        self.session_var = tk.StringVar(value="Sesiones hoy: 0")
 
         # Construcción de UI
         self._build_ui()
@@ -28,6 +36,8 @@ class PomodoroApp:
         # Fase inicial y render
         self._set_phase(work=True, reset_remaining=False)
         self._update_buttons(start=True, pause=False, reset=False)
+        # self._set_phase(work=True, reset_remaining=True)
+        self._update_day_and_label()
 
     def _build_ui(self):
         pad = 8
@@ -47,6 +57,9 @@ class PomodoroApp:
         disp.pack(fill="x", padx=pad, pady=pad)
         ttk.Label(disp, textvariable=self.phase_var, font=("Segoe UI", 12, "bold")).pack(pady=(4, 0))
         ttk.Label(disp, textvariable=self.time_var, font=("Consolas", 36, "bold")).pack(pady=(0, 4))
+        
+        # Debajo del label de tiempo
+        ttk.Label(disp, textvariable=self.session_var).pack()
 
         # Botones (Issue 3: funcionales)
         btns = ttk.Frame(self.root)
@@ -93,6 +106,8 @@ class PomodoroApp:
     def _tick(self):
         if not self.is_running:
             return
+        # Comprobar cambio de día en cada tick
+        self._update_day_and_label()
         self.remaining_secs -= 1
         self._render_time()
         if self.remaining_secs <= 0:
@@ -101,24 +116,26 @@ class PomodoroApp:
         self._after_id = self.root.after(1000, self._tick)
 
     def _phase_finished(self):
-        # Alerta al terminar la fase
+        # Alerta (Tarea 05)
         try:
             self.root.bell()
         except Exception:
-            # En algunos entornos (p. ej., ciertos Windows/remoto) puede no estar disponible
             pass
+
+        # Incremento cuando termina Trabajo
+        if not self.is_break:
+            self.daily_sessions += 1
+            self._update_day_and_label()
 
         # Alternar automáticamente Trabajo <-> Descanso
         if self.is_break:
-            # Terminó Descanso -> vuelve a Trabajo
-            self._set_phase(work=True, reset_remaining=True)
+            self._set_phase(work=True, reset_remaining=True)   # Terminó Descanso -> Trabajo
         else:
-            # Terminó Trabajo -> pasa a Descanso
-            self._set_phase(work=False, reset_remaining=True)
+            self._set_phase(work=False, reset_remaining=True)  # Terminó Trabajo -> Descanso
 
         # Seguir corriendo automáticamente
         self._after_id = self.root.after(1000, self._tick)
-    
+        
     # ===== Controles (Issue 3) =====
     def start_timer(self):
         if self.is_running:
@@ -138,6 +155,15 @@ class PomodoroApp:
             self.root.after_cancel(self._after_id)
             self._after_id = None
         self._update_buttons(start=True, pause=False, reset=True)
+    
+    def _update_day_and_label(self):
+        # Reset si cambia la fecha
+        today = datetime.date.today()
+        if today != self.current_date:
+            self.current_date = today
+            self.daily_sessions = 0
+        # Refrescar etiqueta
+        self.session_var.set(f"Sesiones hoy: {self.daily_sessions}")
 
     def reset_timer(self):
         # Parar si está corriendo
@@ -148,6 +174,7 @@ class PomodoroApp:
         # Volver a Trabajo con el tiempo configurado
         self._set_phase(work=True, reset_remaining=True)
         self._update_buttons(start=True, pause=False, reset=False)
+        self._update_day_and_label()
 
 def main():
     root = tk.Tk()
