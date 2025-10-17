@@ -8,11 +8,17 @@ class PomodoroApp:
         self.root.geometry("360x300")
         self.root.resizable(False, False)
 
-        # Variables UI iniciales
+        # Variables UI
         self.work_min = tk.IntVar(value=25)
         self.break_min = tk.IntVar(value=5)
         self.phase_var = tk.StringVar(value="Trabajo")
-        self.time_var = tk.StringVar(value="25:00")  # Solo display en Issue 1
+        self.time_var = tk.StringVar(value="25:00")  # display inicial
+
+        # Estado del temporizador (Issue 2)
+        self.is_running = False
+        self.is_break = False  # False = Trabajo, True = Descanso
+        self.remaining_secs = 25 * 60
+        self._after_id = None
 
         # Construcción de UI
         self._build_ui()
@@ -21,6 +27,9 @@ class PomodoroApp:
         self.start_btn.config(state="normal")
         self.pause_btn.config(state="disabled")
         self.reset_btn.config(state="disabled")
+
+        # Ajuste de fase inicial y render de tiempo
+        self._set_phase(work=True, reset_remaining=True)
 
     def _build_ui(self):
         pad = 8
@@ -41,15 +50,59 @@ class PomodoroApp:
         ttk.Label(disp, textvariable=self.phase_var, font=("Segoe UI", 12, "bold")).pack(pady=(4, 0))
         ttk.Label(disp, textvariable=self.time_var, font=("Consolas", 36, "bold")).pack(pady=(0, 4))
 
-        # Botones principales (sin lógica en Issue 1)
+        # Botones (Issue 2: iniciador temporal para pruebas)
         btns = ttk.Frame(self.root)
         btns.pack(padx=pad, pady=pad)
-        self.start_btn = ttk.Button(btns, text="Iniciar", command=lambda: None)   # placeholder
+        # Nota: Este "start temporal" se reemplazará en Issue 3 por start/pause/reset reales
+        self.start_btn = ttk.Button(btns, text="Iniciar (temporal)", command=self._start_temporal)
         self.start_btn.grid(row=0, column=0, padx=4, pady=4)
-        self.pause_btn = ttk.Button(btns, text="Pausar", command=lambda: None)   # placeholder
+        self.pause_btn = ttk.Button(btns, text="Pausar", command=lambda: None)   # se implementa en Issue 3
         self.pause_btn.grid(row=0, column=1, padx=4, pady=4)
-        self.reset_btn = ttk.Button(btns, text="Reiniciar", command=lambda: None) # placeholder
+        self.reset_btn = ttk.Button(btns, text="Reiniciar", command=lambda: None) # se implementa en Issue 3
         self.reset_btn.grid(row=0, column=2, padx=4, pady=4)
+
+    # ===== Lógica del temporizador (Issue 2) =====
+
+    def _render_time(self):
+        m, s = divmod(max(0, int(self.remaining_secs)), 60)
+        self.time_var.set(f"{m:02d}:{s:02d}")
+
+    def _set_phase(self, work: bool, reset_remaining: bool):
+        self.is_break = not work
+        self.phase_var.set("Descanso" if self.is_break else "Trabajo")
+        if reset_remaining:
+            minutes = self.break_min.get() if self.is_break else self.work_min.get()
+            self.remaining_secs = int(minutes) * 60
+        self._render_time()
+
+    def _tick(self):
+        if not self.is_running:
+            return
+        self.remaining_secs -= 1
+        self._render_time()
+        if self.remaining_secs <= 0:
+            self._phase_finished()
+            return
+        self._after_id = self.root.after(1000, self._tick)
+
+    def _phase_finished(self):
+        # Alternar automáticamente Trabajo <-> Descanso
+        if self.is_break:
+            # Terminó Descanso -> vuelve a Trabajo
+            self._set_phase(work=True, reset_remaining=True)
+        else:
+            # Terminó Trabajo -> pasa a Descanso
+            self._set_phase(work=False, reset_remaining=True)
+        # Seguir corriendo automáticamente
+        self._after_id = self.root.after(1000, self._tick)
+
+    # ===== Inicio temporal para pruebas de Issue 2 =====
+    def _start_temporal(self):
+        # Si estaba en 0 (p.ej., después de pruebas), rearmar la fase actual
+        if self.remaining_secs <= 0:
+            self._set_phase(work=not self.is_break, reset_remaining=True)
+        self.is_running = True
+        self._tick()
 
 def main():
     root = tk.Tk()
