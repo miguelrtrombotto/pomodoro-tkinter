@@ -101,6 +101,13 @@ class PomodoroApp:
         self._after_id = self.root.after(1000, self._tick)
 
     def _phase_finished(self):
+        # Alerta al terminar la fase
+        try:
+            self.root.bell()
+        except Exception:
+            # En algunos entornos (p. ej., ciertos Windows/remoto) puede no estar disponible
+            pass
+
         # Alternar automáticamente Trabajo <-> Descanso
         if self.is_break:
             # Terminó Descanso -> vuelve a Trabajo
@@ -108,9 +115,10 @@ class PomodoroApp:
         else:
             # Terminó Trabajo -> pasa a Descanso
             self._set_phase(work=False, reset_remaining=True)
+
         # Seguir corriendo automáticamente
         self._after_id = self.root.after(1000, self._tick)
-
+    
     # ===== Controles (Issue 3) =====
     def start_timer(self):
         if self.is_running:
